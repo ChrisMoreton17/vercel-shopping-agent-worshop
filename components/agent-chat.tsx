@@ -11,6 +11,7 @@
  * Workshop docs: https://agent-foundations-certification.vercel.app/docs/chat-agent
  */
 import { useChat } from "@ai-sdk/react";
+import { ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import {
   Conversation,
@@ -25,25 +26,30 @@ import {
 import {
   PromptInput,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
   type PromptInputMessage,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
+import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { useCart } from "@/components/cart-provider";
+import type { ShoppingAgentUIMessage } from "@/lib/agent";
+import { AgentCartCard } from "./agent-cart-card";
+import { AgentProductCard } from "./agent-product-card";
+import { AgentProductList } from "./agent-product-list";
 
 export function AgentChat() {
   const [input, setInput] = useState("");
 
-  const { refreshCart } = useCart();
+  const { messages, error, status, sendMessage } =
+    useChat<ShoppingAgentUIMessage>();
 
-  const { messages, error, sendMessage } = useChat({
-    // The agent can add to the cart server-side; pull the new cart into the header badge.
-    onFinish: ({ message }) => {
-      if (message.parts.some((p) => p.type === "tool-addToCart")) refreshCart();
-    },
-  });
+  // Buttons inside cards and suggestion chips send text as if the user typed it.
+  const ask = (text: string) => sendMessage({ text });
+
+  const { itemCount } = useCart();
 
   const handleSubmit = (message: PromptInputMessage) => {
     sendMessage({ text: input });
@@ -56,7 +62,7 @@ export function AgentChat() {
     <div className="flex h-full min-h-0 flex-col">
       <Conversation className="flex-1">
         <ConversationContent>
-          {messages.map((m) =>
+          {messages.map((m, mi) =>
             m.parts.map((p, i) => {
               switch (p.type) {
                 case "text":
@@ -67,6 +73,50 @@ export function AgentChat() {
                       </MessageContent>
                     </Message>
                   );
+                case "tool-searchProducts":
+                  return (
+                    <AgentProductList
+                      key={`${m.id}-${i}`}
+                      invocation={p}
+                      onAsk={ask}
+                    />
+                  );
+                case "tool-getProductDetails":
+                  return (
+                    <AgentProductCard key={`${m.id}-${i}`} invocation={p} />
+                  );
+                case "tool-addToCart":
+                  return (
+                    <AgentCartCard
+                      key={`${m.id}-${i}`}
+                      invocation={p}
+                      title="Added to your cart"
+                    />
+                  );
+                case "tool-viewCart":
+                  return (
+                    <AgentCartCard
+                      key={`${m.id}-${i}`}
+                      invocation={p}
+                      title="Your cart"
+                    />
+                  );
+                case "tool-suggestNextActions": {
+                  // Only the latest reply's suggestions are actionable.
+                  const isLatest = mi === messages.length - 1;
+                  const suggestions = p.input?.suggestions;
+                  if (!isLatest || status !== "ready" || !suggestions?.length)
+                    return null;
+                  return (
+                    <Suggestions key={`${m.id}-${i}`}>
+                      {suggestions.map((s) =>
+                        s ? (
+                          <Suggestion key={s} suggestion={s} onClick={ask} />
+                        ) : null,
+                      )}
+                    </Suggestions>
+                  );
+                }
                 default:
                   return null;
               }
@@ -86,8 +136,17 @@ export function AgentChat() {
             />
           </PromptInputBody>
           <PromptInputFooter>
-            <PromptInputTools />
-            <PromptInputSubmit status="ready" disabled={!input.trim()} />
+            <PromptInputTools>
+              <PromptInputButton
+                onClick={() => ask("Show me my cart")}
+                disabled={status !== "ready"}
+                tooltip="Show your cart in the chat"
+              >
+                <ShoppingCart />
+                <span>Cart ({itemCount})</span>
+              </PromptInputButton>
+            </PromptInputTools>
+            <PromptInputSubmit status={status} disabled={!input.trim()} />
           </PromptInputFooter>
         </PromptInput>
       </div>

@@ -8,7 +8,13 @@
  *
  * Workshop docs: https://agent-foundations-certification.vercel.app/docs/chat-agent
  */
-import { ToolLoopAgent } from "ai";
+import {
+  hasToolCall,
+  isStepCount,
+  ToolLoopAgent,
+  type InferAgentUIMessage,
+  type UIToolInvocation,
+} from "ai";
 import {
   addToCart,
   getAllCategories,
@@ -16,6 +22,8 @@ import {
   getProductDetails,
   returnOrder,
   searchProducts,
+  suggestNextActions,
+  viewCart,
 } from "@/lib/tools";
 
 export const shoppingAgent = new ToolLoopAgent({
@@ -35,6 +43,11 @@ How you help:
 - Only add a follow-up question when you need it to move forward. Don't end with "Anything else I can help with?". Use a short bullet list only when comparing options.
 - No emoji.
 
+The chat shows tool results as visual cards:
+- searchProducts results appear as product cards with prices and Add to cart buttons, getProductDetails as a detailed product card, and addToCart/viewCart as a cart card.
+- Never repeat what a card already shows (product names, prices, lists, cart contents). Instead add one short line of value: a recommendation, a comparison, or a note on stock.
+- Examples: after getProductDetails, say something like "Warm and minimal, a good everyday pick." not "It's $24.00 with 23 in stock." After viewCart, say "Here's your cart." not a list of what's in it.
+
 Looking up products:
 - Whenever the customer asks about products, prices, or recommendations, use the searchProducts tool to look up real catalog data before answering.
 - When asked about a type or category of product, use the getAllCategories tool to get the valid category slugs before calling searchProducts with a category.
@@ -48,7 +61,9 @@ Looking up products:
 
 Cart:
 - When the customer clearly asks to add or buy an item, use addToCart (find the product id with searchProducts first if needed). Don't add items they didn't ask for.
-- After adding, confirm what was added and the new cart total (in dollars).
+- After adding, confirm what was added in a few words; the card shows the cart total.
+- When the customer wants to see or review their cart, use viewCart.
+- Checkout isn't available in the store yet. If asked, say so.
 
 Returns:
 - You can file a return with the returnOrder tool. You need the order ID and the customer's reason; ask for whichever is missing. Example order IDs are 11111, 22222, and 33333.
@@ -59,13 +74,33 @@ Other order issues and complaints:
 - Never promise refunds, discounts, or delivery dates beyond what a tool returned.
 
 Staying on topic:
-- Only help with shopping at Ship It Shop. Politely decline anything else (coding help, general knowledge, weather, and so on) and steer back to the store.`,
+- Only help with shopping at Ship It Shop. Politely decline anything else (coding help, general knowledge, weather, and so on) and steer back to the store.
+
+Next steps:
+- End every reply by calling suggestNextActions with 2–3 short, relevant next steps in the customer's voice (e.g. "Show me hoodies", "Add it to my cart", "View my cart"). Don't also write the suggestions out as text.`,
   tools: {
     searchProducts,
     getAllCategories,
     getProductDetails,
     getCurrentPromotion,
     addToCart,
+    viewCart,
     returnOrder,
+    suggestNextActions,
   },
+  // Suggestions are the last thing in a reply, so stop the loop once they're offered.
+  stopWhen: [isStepCount(20), hasToolCall("suggestNextActions")],
 });
+
+export type ShoppingAgentUIMessage = InferAgentUIMessage<typeof shoppingAgent>;
+export type SearchProductsToolInvocation = UIToolInvocation<
+  typeof searchProducts
+>;
+export type ProductDetailsToolInvocation = UIToolInvocation<
+  typeof getProductDetails
+>;
+export type AddToCartToolInvocation = UIToolInvocation<typeof addToCart>;
+export type ViewCartToolInvocation = UIToolInvocation<typeof viewCart>;
+export type SuggestNextActionsToolInvocation = UIToolInvocation<
+  typeof suggestNextActions
+>;
