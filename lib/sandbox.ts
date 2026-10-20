@@ -2,6 +2,11 @@ import { Sandbox } from "@vercel/sandbox";
 
 export const SANDBOX_NAME = "admin-agent-sandbox";
 
+// Absolute on purpose: the sandbox's working directory isn't guaranteed to be
+// /vercel/sandbox, so a relative "memories.md" can miss the file.
+export const MEMORIES_PATH = "/vercel/sandbox/memories.md";
+export const SCRIPTS_DIR = "/vercel/sandbox/scripts";
+
 export const createOrGetSandbox = async (name: string) => {
   try {
     const sandbox = await Sandbox.get({ name });
