@@ -17,13 +17,14 @@ export async function loginAction(formData: FormData): Promise<void> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: COOKIE_MAX_AGE,
-    path: "/admin",
+    // Site-wide so it also reaches /api/admin/*, which checks it too.
+    path: "/",
   });
   redirect("/admin");
 }
 
 export async function logoutAction(): Promise<void> {
   const store = await cookies();
-  store.delete(ADMIN_COOKIE_NAME);
+  store.delete({ name: ADMIN_COOKIE_NAME, path: "/" });
   redirect("/admin/login");
 }
