@@ -28,6 +28,7 @@ interface CartContextType {
   addToCart: (product: Product, quantity: number) => void
   removeFromCart: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
+  refreshCart: () => void
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -138,6 +139,15 @@ export function CartProvider({ children }: CartProviderProps) {
     }
   }, [])
 
+  // Re-fetch after the cart changes outside this provider, e.g. the agent's addToCart tool.
+  const refreshCart = useCallback(() => {
+    getCartAction()
+      .then(setCart)
+      .catch(() => {
+        // No-op: keep the current cart if the API is unreachable.
+      })
+  }, [])
+
   const openCart = useCallback(() => setIsOpen(true), [])
   const closeCart = useCallback(() => setIsOpen(false), [])
 
@@ -198,6 +208,7 @@ export function CartProvider({ children }: CartProviderProps) {
         addToCart,
         removeFromCart,
         updateQuantity,
+        refreshCart,
       }}
     >
       {children}
