@@ -13,17 +13,15 @@ import {
   ApiRequestError,
   cartAdd,
   cartGet,
-  createReturn,
   getCategories,
-  getOrder,
   getProductById,
   getProducts,
   getProductStock,
   getPromotion,
-  notifyReturnInProcess,
-  preauthorizeRefund,
 } from "@/lib/api";
 import { getCartToken } from "@/lib/cart-token";
+import { start } from "workflow/api";
+import { returnFlow } from "./workflows/return-flow";
 
 export const searchProducts = tool({
   description: `Search the Vercel swag store product catalog. Use this for broad lookups: when the user asks about products, what the store sells, or wants recommendations. Returns a short list; for full details or stock on one specific item, follow up with getProductDetails. Optionally narrow results to a single category.`,
@@ -102,24 +100,11 @@ export const returnOrder = tool({
       .describe("Why the user is returning the order."),
   }),
   execute: async ({ orderId, reason }) => {
-    try {
-      const order = await getOrder(orderId);
-      await notifyReturnInProcess(orderId);
-      await preauthorizeRefund(orderId);
-      const filed = await createReturn({
-        orderId: order.id,
-        items: order.items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-        })),
-        reason,
-      });
-      return { returnId: filed.id, status: filed.status };
-    } catch (err) {
-      const message =
-        err instanceof ApiRequestError ? err.message : "Unknown error";
-      return { error: message };
-    }
+    const run = await start(returnFlow, [orderId, reason]);
+    return {
+      runId: run.runId,
+      message: `Return request received for order ${orderId}.`,
+    };
   },
 });
 
