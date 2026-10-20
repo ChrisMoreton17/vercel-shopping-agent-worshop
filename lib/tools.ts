@@ -12,6 +12,7 @@ import { z } from "zod";
 import {
   ApiRequestError,
   cartAdd,
+  cartGet,
   createReturn,
   getCategories,
   getOrder,
@@ -234,4 +235,42 @@ export const addToCart = tool({
       return { error: message };
     }
   },
+});
+
+export const viewCart = tool({
+  description: `Show the user's shopping cart: items, quantities, and subtotal. Use this when the user asks to see, review, or check their cart or basket. The cart is shown to the user as an interactive card.`,
+  inputSchema: z.object({}),
+  execute: async () => {
+    const token = await getCartToken();
+    if (!token) return { totalItems: 0, subtotal: 0, currency: "USD", items: [] };
+    try {
+      const cart = await cartGet(token);
+      return {
+        totalItems: cart.totalItems,
+        subtotal: cart.subtotal,
+        currency: cart.currency,
+        items: cart.items.map((i) => ({
+          name: i.product.name,
+          quantity: i.quantity,
+        })),
+      };
+    } catch (err) {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Unknown error";
+      return { error: message };
+    }
+  },
+});
+
+export const suggestNextActions = tool({
+  description: `Offer the user 2-3 tappable next steps. Call this as the very last thing in every reply. Write each suggestion as something the user would say, e.g. "Show me hoodies", "Add it to my cart", "Any deals on?".`,
+  inputSchema: z.object({
+    suggestions: z
+      .array(z.string().max(40))
+      .min(1)
+      .max(3)
+      .describe("Short follow-ups, phrased in the user's voice."),
+  }),
+  // Rendered as buttons in the chat; nothing to do on the server.
+  execute: async ({ suggestions }) => ({ suggestions }),
 });
