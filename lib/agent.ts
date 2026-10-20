@@ -1,21 +1,15 @@
 /**
- * This is where your agent will live.
+ * UI types for the shopping agent.
  *
- * During the workshop you'll define a `ToolLoopAgent` here, give it a model
- * and instructions, and later add tools (web search, sandbox, etc.). The
- * route handler in `app/api/chat/route.ts` and the `useChat` call in
- * `components/agent-chat.tsx` will both import from this file.
+ * The agent itself now runs durably as a WorkflowAgent in
+ * `lib/workflows/chat-flow.ts`, with its prompt and tools in `lib/shippy.ts`.
+ * These types are derived from that shared tool set so the chat UI's
+ * `useChat` call and tool-part components stay in sync with it.
  *
- * Workshop docs: https://agent-foundations-certification.vercel.app/docs/chat-agent
+ * Workshop docs: https://agent-foundations-certification.vercel.app/docs/workflows
  */
-import {
-  hasToolCall,
-  isStepCount,
-  ToolLoopAgent,
-  type InferAgentUIMessage,
-  type UIToolInvocation,
-} from "ai";
-import { shippyInstructions, shippyTools } from "@/lib/shippy";
+import type { InferUITools, UIMessage, UIToolInvocation } from "ai";
+import type { shippyTools } from "@/lib/shippy";
 import type {
   addToCart,
   getProductDetails,
@@ -24,15 +18,11 @@ import type {
   viewCart,
 } from "@/lib/tools";
 
-export const shoppingAgent = new ToolLoopAgent({
-  model: "anthropic/claude-sonnet-5",
-  instructions: shippyInstructions,
-  tools: shippyTools,
-  // Suggestions are the last thing in a reply, so stop the loop once they're offered.
-  stopWhen: [isStepCount(20), hasToolCall("suggestNextActions")],
-});
-
-export type ShoppingAgentUIMessage = InferAgentUIMessage<typeof shoppingAgent>;
+export type ShoppingAgentUIMessage = UIMessage<
+  unknown,
+  never,
+  InferUITools<typeof shippyTools>
+>;
 export type SearchProductsToolInvocation = UIToolInvocation<
   typeof searchProducts
 >;
