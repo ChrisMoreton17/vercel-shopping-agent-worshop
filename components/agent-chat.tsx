@@ -31,11 +31,19 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
+import { useCart } from "@/components/cart-provider";
 
 export function AgentChat() {
   const [input, setInput] = useState("");
 
-  const { messages, error, sendMessage } = useChat();
+  const { refreshCart } = useCart();
+
+  const { messages, error, sendMessage } = useChat({
+    // The agent can add to the cart server-side; pull the new cart into the header badge.
+    onFinish: ({ message }) => {
+      if (message.parts.some((p) => p.type === "tool-addToCart")) refreshCart();
+    },
+  });
 
   const handleSubmit = (message: PromptInputMessage) => {
     sendMessage({ text: input });

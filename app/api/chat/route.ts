@@ -10,9 +10,14 @@
  */
 import { createAgentUIStreamResponse } from "ai";
 import { shoppingAgent } from "@/lib/agent";
+import { getOrCreateCartToken } from "@/lib/cart-token";
 
 export const POST = async (req: Request) => {
   const { messages } = await req.json();
+
+  // The addToCart tool runs mid-stream, after headers are sent, so it can't
+  // set the cart cookie itself. Make sure one exists before streaming.
+  await getOrCreateCartToken();
 
   return createAgentUIStreamResponse({
     agent: shoppingAgent,

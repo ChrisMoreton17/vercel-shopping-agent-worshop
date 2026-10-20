@@ -11,15 +11,18 @@ import { tool } from "ai";
 import { z } from "zod";
 import {
   ApiRequestError,
+  cartAdd,
   createReturn,
   getCategories,
   getOrder,
   getProductById,
   getProducts,
   getProductStock,
+  getPromotion,
   notifyReturnInProcess,
   preauthorizeRefund,
 } from "@/lib/api";
+import { getCartToken } from "@/lib/cart-token";
 
 export const searchProducts = tool({
   description: `Search the Vercel swag store product catalog. Use this for broad lookups: when the user asks about products, what the store sells, or wants recommendations. Returns a short list; for full details or stock on one specific item, follow up with getProductDetails. Optionally narrow results to a single category.`,
@@ -154,6 +157,76 @@ export const getProductDetails = tool({
               lowStock: stock.lowStock,
             }
           : null,
+      };
+    } catch (err) {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Unknown error";
+      return { error: message };
+    }
+  },
+});
+
+export const getCurrentPromotion = tool({
+  description: `Get the store's current promotion, if any: title, description, discount percentage, promo code, and validity dates. Use this when the user asks about deals, discounts, sales, or promo codes.`,
+  inputSchema: z.object({}),
+  execute: async () => {
+    try {
+      const promo = await getPromotion();
+      // The API can flag a promotion active after its dates have passed, so check them too.
+      const now = Date.now();
+      if (
+        !promo ||
+        !promo.active ||
+        Date.parse(promo.validFrom) > now ||
+        Date.parse(promo.validUntil) < now
+      ) {
+        return { active: false };
+      }
+      return {
+        active: true,
+        title: promo.title,
+        description: promo.description,
+        discountPercent: promo.discountPercent,
+        code: promo.code,
+        validUntil: promo.validUntil,
+      };
+    } catch (err) {
+      const message =
+        err instanceof ApiRequestError ? err.message : "Unknown error";
+      return { active: false, error: message };
+    }
+  },
+});
+
+export const addToCart = tool({
+  description: `Add a product to the user's shopping cart. Only use this when the user clearly asks to add or buy a specific item. If you don't know the product's id yet, find it with searchProducts first.`,
+  inputSchema: z.object({
+    productId: z
+      .string()
+      .describe(`The product id (e.g. 'hoodie_001'), taken from a searchProducts or getProductDetails result.`),
+    quantity: z
+      .number()
+      .int()
+      .min(1)
+      .max(10)
+      .default(1)
+      .describe("How many to add. Defaults to 1."),
+  }),
+  execute: async ({ productId, quantity }) => {
+    // The chat route guarantees the cookie exists, since we can't set it mid-stream.
+    const token = await getCartToken();
+    if (!token) return { error: "No cart found. Ask the user to refresh the page." };
+    try {
+      const cart = await cartAdd(token, productId, quantity);
+      return {
+        added: { productId, quantity },
+        totalItems: cart.totalItems,
+        subtotal: cart.subtotal,
+        currency: cart.currency,
+        items: cart.items.map((i) => ({
+          name: i.product.name,
+          quantity: i.quantity,
+        })),
       };
     } catch (err) {
       const message =

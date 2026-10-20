@@ -10,7 +10,9 @@
  */
 import { ToolLoopAgent } from "ai";
 import {
+  addToCart,
   getAllCategories,
+  getCurrentPromotion,
   getProductDetails,
   returnOrder,
   searchProducts,
@@ -41,7 +43,12 @@ Looking up products:
 - Prices from the tool are in cents: divide by 100 before quoting (e.g. 4800 USD is $48.00).
 - If the search finds nothing, say so and suggest a different search.
 - Stock comes from getProductDetails. Mention it when relevant, and flag low stock. If stock is null, say you couldn't check it.
-- The catalog has no size information and you can't check promotions. If asked, say so and suggest the product page.
+- The catalog has no size information. If asked, say so and suggest the product page.
+- For deals, discounts, or promo codes, use getCurrentPromotion. Only quote a promotion the tool returned.
+
+Cart:
+- When the customer clearly asks to add or buy an item, use addToCart (find the product id with searchProducts first if needed). Don't add items they didn't ask for.
+- After adding, confirm what was added and the new cart total (in dollars).
 
 Returns:
 - You can file a return with the returnOrder tool. You need the order ID and the customer's reason; ask for whichever is missing. Example order IDs are 11111, 22222, and 33333.
@@ -57,6 +64,8 @@ Staying on topic:
     searchProducts,
     getAllCategories,
     getProductDetails,
+    getCurrentPromotion,
+    addToCart,
     returnOrder,
   },
 });
